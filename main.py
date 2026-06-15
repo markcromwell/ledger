@@ -1,16 +1,9 @@
 """
-Decision Ledger — FastAPI application.
+Decision Ledger — FastAPI application entry point.
 
 Conventions (enforced by forge_new_program bootstrap):
   - GET /health — no auth, returns {"status": "ok"}
-  - All routes under routes/ as APIRouter
+  - All routes under decision_ledger/app.py
   - Tests in scripts/test_unit.py
 """
-from fastapi import FastAPI
-
-app = FastAPI(title="Decision Ledger", version="0.1.0")
-
-
-@app.get("/health")
-def health():
-    return {"status": "ok", "service": "decision-ledger"}
+from decision_ledger.app import app  # noqa: F401

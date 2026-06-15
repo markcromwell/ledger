@@ -1,0 +1,1 @@
+"""Decision Ledger — self-contained FastAPI application package."""
