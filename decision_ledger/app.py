@@ -65,6 +65,11 @@ def patch_decision(decision_id: int, payload: DecisionPatch, db: Session = Depen
         raise HTTPException(status_code=404, detail="Decision not found")
 
     updates = payload.model_dump(exclude_unset=True)
+    # Reject an explicit null for a NOT-NULL column with a clean 422 instead of
+    # letting setattr() write NULL and surface a 500 IntegrityError at commit.
+    for required in ("title", "status"):
+        if required in updates and updates[required] is None:
+            raise HTTPException(status_code=422, detail=f"{required} must not be null")
     if "status" in updates and updates["status"] is not None:
         updates["status"] = updates["status"].value
     if "title" in updates and updates["title"] is not None:

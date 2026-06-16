@@ -171,9 +171,34 @@ def test_patch_rejects_invalid_status(client):
     assert resp.status_code == 422
 
 
+def test_patch_rejects_null_title(client):
+    """Explicit null for the NOT-NULL title column → 422, not a 500 IntegrityError."""
+    created = client.post("/decisions", json={"title": "Has title"}).json()
+    resp = client.patch(f"/decisions/{created['id']}", json={"title": None})
+    assert resp.status_code == 422
+
+
+def test_patch_rejects_null_status(client):
+    """Explicit null for the NOT-NULL status column → 422, not a 500."""
+    created = client.post("/decisions", json={"title": "Has status"}).json()
+    resp = client.patch(f"/decisions/{created['id']}", json={"status": None})
+    assert resp.status_code == 422
+
+
 def test_patch_decision_404(client):
     resp = client.patch("/decisions/9999", json={"title": "Nope"})
     assert resp.status_code == 404
+
+
+def test_requirements_pin_postgres_driver():
+    """Prod uses Postgres: the driver must be pinned AND named in the URL, or prod
+    startup crashes even though the SQLite-backed tests pass (the LEDGER dogfood bug)."""
+    import pathlib
+    root = pathlib.Path(__file__).resolve().parent.parent
+    reqs = (root / "requirements.txt").read_text(encoding="utf-8")
+    assert "psycopg2" in reqs, "requirements.txt must pin a Postgres driver (psycopg2-binary)"
+    db_src = (root / "decision_ledger" / "database.py").read_text(encoding="utf-8")
+    assert "postgresql+psycopg2://" in db_src, "DATABASE_URL default must name the driver"
 
 
 def test_delete_decision(client):
