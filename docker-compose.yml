@@ -1,8 +1,42 @@
+# Tiered deploy — run each tier as its own compose PROJECT with a tier env file,
+# so qual/uat/prod get isolated networks, DB volumes, and host ports (no collisions):
+#
+#   docker compose -p ledger-qual --env-file deploy/qual.env up -d --build
+#   docker compose -p ledger-uat  --env-file deploy/uat.env  up -d --build
+#   docker compose -p ledger-prod --env-file deploy/prod.env up -d --build
+#
+# The app's internal port is always 8765; LEDGER_PORT maps it on the host per tier.
 services:
+  ledger-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ledger
+      POSTGRES_PASSWORD: ${LEDGER_DB_PASSWORD:-ledger}
+      POSTGRES_DB: ${LEDGER_DB_NAME:-ledger}
+    volumes:
+      - ledger-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ledger -d ${LEDGER_DB_NAME:-ledger}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
   decision-ledger:
     build: .
+    environment:
+      PORT: "8765"
+      DATABASE_URL: "postgresql+psycopg2://ledger:${LEDGER_DB_PASSWORD:-ledger}@ledger-db:5432/${LEDGER_DB_NAME:-ledger}"
     ports:
-      - "8765:8765"
-    env_file:
-      - .env
+      - "${LEDGER_PORT:-8765}:8765"
+    depends_on:
+      ledger-db:
+        condition: service_healthy
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8765/health').status==200 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+volumes:
+  ledger-db-data:
